@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using EventStore.ClientAPI;
 using Newtonsoft.Json.Linq;
 
@@ -57,7 +58,8 @@ namespace AccountBalance
 
         private void Subscribe()
         {
-            EventStoreLoader.Connection.SubscribeToStreamFrom(_streamName, Checkpoint, false, GotEvent, subscriptionDropped: Dropped  );
+            var catchUpSubscriptionSettings = new CatchUpSubscriptionSettings(1024, 128, false, false);
+            EventStoreLoader.Connection.SubscribeToStreamFrom(_streamName, Checkpoint, catchUpSubscriptionSettings, GotEvent, subscriptionDropped: Dropped  );
         }
 
         private void Dropped(EventStoreCatchUpSubscription sub,SubscriptionDropReason reason,Exception ex)
@@ -68,7 +70,7 @@ namespace AccountBalance
             Subscribe();
         }
 
-        private void GotEvent(EventStoreCatchUpSubscription sub, ResolvedEvent evt)
+        private Task GotEvent(EventStoreCatchUpSubscription sub, ResolvedEvent evt)
         {
             try
             {
@@ -76,22 +78,25 @@ namespace AccountBalance
                 var total = _total;
                 var checkpoint = evt.Event.EventNumber;
 
-                var amount = (string)JObject.Parse(Encoding.UTF8.GetString(evt.Event.Data))["amount"];
+                var jObject = JObject.Parse(Encoding.UTF8.GetString(evt.Event.Data));
+                var amount = jObject["amount"].Value<int>();
                 switch (evt.Event.EventType.ToUpperInvariant())
                 {
                     case "CREDIT":
-                        total += int.Parse(amount);
+                        total += amount;
                         break;
                     case "DEBIT":
-                        total -= int.Parse(amount);
+                        total -= amount;
                         break;
                     default:
                         throw new Exception("Unknown Event Type");
                 }
+
                 File.WriteAllText(_localFile, checkpoint + "," + total);
                 //Update the common state after commit to disk
                 _total = total;
-                Checkpoint = checkpoint;
+
+                Checkpoint = (int?) checkpoint;
             }
             catch (Exception ex)
             {
@@ -99,6 +104,8 @@ namespace AccountBalance
             }
             //repaint screen
             _view.Total = _total;
+
+            return  Task.CompletedTask;
         }
     }
 }

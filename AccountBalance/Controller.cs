@@ -81,6 +81,9 @@ namespace AccountBalance
                 switch (tokens[0].ToUpperInvariant())
                 {
                     case "CREDIT":
+                        var jobject = new JObject();
+                        jobject["amount"] = parameter;
+
                         EventStoreLoader.Connection.AppendToStreamAsync(
                             _streamName,
                             _rm.Checkpoint ?? ExpectedVersion.EmptyStream,
@@ -88,12 +91,15 @@ namespace AccountBalance
                                 Guid.NewGuid(),
                                 "CREDIT",
                                 true,
-                                Encoding.UTF8.GetBytes("{amount:" + parameter.ToString() + "}"),
+                                Encoding.UTF8.GetBytes(jobject.ToString()),
                                 new byte[] { }
                                 )
                             );
                         break;
                     case "DEBIT":
+                        var jobject2 = new JObject();
+                        jobject2["amount"] = parameter;
+
                         EventStoreLoader.Connection.AppendToStreamAsync(
                             _streamName,
                             _rm.Checkpoint ?? ExpectedVersion.EmptyStream,
@@ -101,7 +107,7 @@ namespace AccountBalance
                                 Guid.NewGuid(),
                                 "DEBIT",
                                 true,
-                                Encoding.UTF8.GetBytes("{amount:" + parameter.ToString() + "}"),
+                                Encoding.UTF8.GetBytes(jobject2.ToString()),
                                 new byte[] { }
                                 )
                             );
@@ -130,7 +136,7 @@ namespace AccountBalance
                 return;
             }
             var evt = slice.Events[0].Event;
-            var amount = int.Parse((string)JObject.Parse(Encoding.UTF8.GetString(evt.Data))["amount"]);
+            var amount = JObject.Parse(Encoding.UTF8.GetString(evt.Data))["amount"].Value<int>();
             var reversedAmount = amount * -1;
 
             EventStoreLoader.Connection.AppendToStreamAsync(
@@ -218,7 +224,7 @@ namespace AccountBalance
                             nextSliceStart,
                             20,
                             false).Result;
-                nextSliceStart = currentSlice.NextEventNumber;
+                nextSliceStart = (int) currentSlice.NextEventNumber;
                 streamEvents.AddRange(currentSlice.Events);
             } while (!currentSlice.IsEndOfStream);
 

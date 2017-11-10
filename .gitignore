@@ -45,6 +45,7 @@ bin
 *.ncrunchproject
 
 .idea
+.vs
 
 * Thumbs.db
 

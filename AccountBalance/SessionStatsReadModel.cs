@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using EventStore.ClientAPI;
 
 namespace AccountBalance
@@ -62,17 +63,20 @@ namespace AccountBalance
             EventStoreLoader.Connection.DeleteStreamAsync(tempStreamId, ExpectedVersion.Any).Wait();
         }
 
-        private void GotCredit(EventStoreSubscription sub, ResolvedEvent resolvedEvent)
+        private Task GotCredit(EventStoreSubscription sub, ResolvedEvent resolvedEvent)
         {
             _creditCount ++;
             _view.Credits = _creditCount;
             _view.Transactions = _creditCount + _debitCount;
+            return Task.CompletedTask;
         }
-        private void GotDebit(EventStoreSubscription sub, ResolvedEvent resolvedEvent)
+        private Task GotDebit(EventStoreSubscription sub, ResolvedEvent resolvedEvent)
         {
             _debitCount ++;
             _view.Debits = _debitCount;
             _view.Transactions = _creditCount + _debitCount;
+            return Task.CompletedTask;
+
         }
     }
 }
